@@ -22,8 +22,8 @@ A modern healthcare management application built with React and Vite, featuring 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Elsaid-shreif7/ai-health-care-welcome-page.git
-cd mymedsync-vite
+git clone https://github.com/Elsaid-shreif7/medsync-app.git
+cd medsync-app
 ```
 
 2. Install dependencies:
