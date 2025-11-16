@@ -1,13 +1,25 @@
 import React, { useState } from 'react';
-import { Heart, Stethoscope, Shield, ArrowLeft, BarChart2, Calendar, Settings } from 'lucide-react';
+import { Heart, Stethoscope, Shield, ArrowLeft, ArrowRight, BarChart2, Calendar, Settings } from 'lucide-react';
 import SignInModal from './components/SignInModal'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('welcome'); // welcome, userSignup, doctorSignup, adminSignup
   const [isArabic, setIsArabic] = useState(false);
 
+  // User signup form state
+  const [userForm, setUserForm] = useState({ fullName: '', email: '', phone: '', password: '', confirmPassword: '', errors: {} });
+  // Doctor signup form state
+  const [doctorForm, setDoctorForm] = useState({ fullName: '', email: '', phone: '', specialization: '', licenseNumber: '', password: '', confirmPassword: '', errors: {} });
+  // Admin signup form state
+  const [adminForm, setAdminForm] = useState({ fullName: '', email: '', phone: '', organization: '', adminCode: '', password: '', confirmPassword: '', errors: {} });
+
   const toggleLanguage = () => {
     setIsArabic(!isArabic);
+  };
+
+  // Helper to get back button icon based on language
+  const getBackButtonIcon = () => {
+    return isArabic ? <ArrowRight /> : <ArrowLeft />;
   };
 
   const handleRoleSelect = (page) => {
@@ -70,24 +82,18 @@ function App() {
   const closeSignInModal = () => setShowSignInModal(false);
 
   const handleSignInSubmit = (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const email = form.email?.value || '';
-    const password = form.password?.value || '';
+    // now receives an object from SignInModal: { email, password, role }
+    if (!e) return;
+    const data = e && e.email ? e : {};
+    const email = data.email || '';
+    const password = data.password || '';
+    const role = data.role || modalRole || 'user';
     setSignedEmail(email);
     setSignedPassword(password);
-    closeSignInModal();
-    // keep the user where they are; the signup forms use defaultValue so they'll receive the values
-  };
-
-  const handleRegisterSubmit = (role, e) => {
-    e.preventDefault();
-    const form = e.target;
-    const name = form.fullName?.value || '';
-    const email = form.email?.value || signedEmail || '';
-    // for demo we won't validate password here
-    setCurrentUser({ role, name, email });
+    // for demo: sign the user in and navigate to dashboard
+    setCurrentUser({ role, name: email.split('@')[0], email });
     setCurrentPage('dashboard');
+    closeSignInModal();
   };
 
   const handleForgotPassword = () => {
@@ -99,6 +105,113 @@ function App() {
     const map = { user: 'userSignup', doctor: 'doctorSignup', admin: 'adminSignup' };
     setShowSignInModal(false);
     setCurrentPage(map[role] || 'userSignup');
+  };
+
+  // Validation helper for user/doctor/admin
+  const validateForm = (form, isArabic, role = null) => {
+    const errors = {};
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRe = /^[0-9]{10,}$/; // at least 10 digits
+
+    if (!form.fullName || !form.fullName.trim()) {
+      errors.fullName = isArabic ? 'الاسم الكامل مطلوب' : 'Full name is required';
+    }
+    if (!form.email || !form.email.trim()) {
+      errors.email = isArabic ? 'البريد الإلكتروني مطلوب' : 'Email is required';
+    } else if (!emailRe.test(form.email)) {
+      errors.email = isArabic ? 'البريد الإلكتروني غير صالح' : 'Invalid email address';
+    }
+    if (!form.phone || !form.phone.trim()) {
+      errors.phone = isArabic ? 'رقم الهاتف مطلوب' : 'Phone number is required';
+    } else if (!phoneRe.test(form.phone.replace(/\D/g, ''))) {
+      errors.phone = isArabic ? 'رقم الهاتف يجب أن يكون 10 أرقام على الأقل' : 'Phone must be at least 10 digits';
+    }
+
+    // Doctor-specific validation
+    if (role === 'doctor') {
+      if (!form.specialization || !form.specialization.trim()) {
+        errors.specialization = isArabic ? 'التخصص مطلوب' : 'Specialization is required';
+      }
+      if (!form.licenseNumber || !form.licenseNumber.trim()) {
+        errors.licenseNumber = isArabic ? 'رقم الترخيص الطبي مطلوب' : 'Medical License Number is required';
+      }
+    }
+
+    // Admin-specific validation
+    if (role === 'admin') {
+      if (!form.organization || !form.organization.trim()) {
+        errors.organization = isArabic ? 'المؤسسة مطلوبة' : 'Organization is required';
+      }
+      if (!form.adminCode || !form.adminCode.trim()) {
+        errors.adminCode = isArabic ? 'كود المدير مطلوب' : 'Administrator Code is required';
+      }
+    }
+
+    if (!form.password) {
+      errors.password = isArabic ? 'كلمة المرور مطلوبة' : 'Password is required';
+    } else if (form.password.length < 6) {
+      errors.password = isArabic ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters';
+    }
+    if (!form.confirmPassword) {
+      errors.confirmPassword = isArabic ? 'تأكيد كلمة المرور مطلوب' : 'Confirm password is required';
+    } else if (form.confirmPassword !== form.password) {
+      errors.confirmPassword = isArabic ? 'تأكيد كلمة المرور لا يطابق' : 'Confirm password does not match';
+    }
+
+    return errors;
+  };
+
+  // Form field change handler
+  const handleUserFormChange = (field, value) => {
+    const newForm = { ...userForm, [field]: value };
+    const errors = validateForm(newForm, isArabic, 'user');
+    setUserForm({ ...newForm, errors });
+  };
+
+  const handleDoctorFormChange = (field, value) => {
+    const newForm = { ...doctorForm, [field]: value };
+    const errors = validateForm(newForm, isArabic, 'doctor');
+    setDoctorForm({ ...newForm, errors });
+  };
+
+  const handleAdminFormChange = (field, value) => {
+    const newForm = { ...adminForm, [field]: value };
+    const errors = validateForm(newForm, isArabic, 'admin');
+    setAdminForm({ ...newForm, errors });
+  };
+
+  // Submit handler for signup forms
+  const handleUserSignupSubmit = (e) => {
+    e.preventDefault();
+    const errors = validateForm(userForm, isArabic, 'user');
+    if (Object.keys(errors).length > 0) {
+      setUserForm({ ...userForm, errors });
+      return;
+    }
+    setCurrentUser({ role: 'user', name: userForm.fullName, email: userForm.email });
+    setCurrentPage('dashboard');
+  };
+
+  const handleDoctorSignupSubmit = (e) => {
+    e.preventDefault();
+    const errors = validateForm(doctorForm, isArabic, 'doctor');
+    if (Object.keys(errors).length > 0) {
+      setDoctorForm({ ...doctorForm, errors });
+      return;
+    }
+    setCurrentUser({ role: 'doctor', name: doctorForm.fullName, email: doctorForm.email });
+    setCurrentPage('dashboard');
+  };
+
+  const handleAdminSignupSubmit = (e) => {
+    e.preventDefault();
+    const errors = validateForm(adminForm, isArabic, 'admin');
+    if (Object.keys(errors).length > 0) {
+      setAdminForm({ ...adminForm, errors });
+      return;
+    }
+    setCurrentUser({ role: 'admin', name: adminForm.fullName, email: adminForm.email });
+    setCurrentPage('dashboard');
   };
 
   // Welcome Page
@@ -173,9 +286,9 @@ function App() {
       <div className="relative min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isArabic ? 'rtl' : 'ltr'}>
         <button 
           onClick={handleBackToWelcome}
-          className={`absolute top-6 z-10 ${isArabic ? 'right-6' : 'left-6'} flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium`}
+          className="absolute top-6 left-6 z-10 flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium"
         >
-          <ArrowLeft className={isArabic ? 'rotate-180' : ''} />
+          {getBackButtonIcon()}
           {isArabic ? 'العودة لاختيار الدور' : 'Back to Role Selection'}
         </button>
 
@@ -203,17 +316,19 @@ function App() {
               {isArabic ? 'انضم إلى MedSync لإدارة رعايتك الصحية' : 'Join MedSync to manage your healthcare'}
             </p>
 
-            <form onSubmit={(e) => handleRegisterSubmit('user', e)} className="space-y-4">
+            <form onSubmit={handleUserSignupSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   {isArabic ? 'الاسم الكامل' : 'Full Name'}
                 </label>
                 <input 
-                  name="fullName"
                   type="text" 
+                  value={userForm.fullName}
+                  onChange={(e) => handleUserFormChange('fullName', e.target.value)}
                   placeholder={isArabic ? 'الاسم الكامل' : 'Full Name'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${userForm.errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {userForm.errors.fullName && <p className="text-sm text-red-600 mt-1">{userForm.errors.fullName}</p>}
               </div>
 
               <div>
@@ -221,12 +336,13 @@ function App() {
                   {isArabic ? 'البريد الإلكتروني' : 'Email Address'}
                 </label>
                 <input 
-                  name="email"
                   type="email" 
-                    defaultValue={signedEmail}
-                    placeholder={isArabic ? 'البريد الإلكتروني' : 'Email Address'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={userForm.email}
+                  onChange={(e) => handleUserFormChange('email', e.target.value)}
+                  placeholder={isArabic ? 'البريد الإلكتروني' : 'Email Address'}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${userForm.errors.email ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {userForm.errors.email && <p className="text-sm text-red-600 mt-1">{userForm.errors.email}</p>}
               </div>
 
               <div>
@@ -235,9 +351,12 @@ function App() {
                 </label>
                 <input 
                   type="tel" 
+                  value={userForm.phone}
+                  onChange={(e) => handleUserFormChange('phone', e.target.value)}
                   placeholder={isArabic ? 'رقم الهاتف' : 'Phone Number'}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isArabic ? 'text-right' : 'text-left'}`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${userForm.errors.phone ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {userForm.errors.phone && <p className="text-sm text-red-600 mt-1">{userForm.errors.phone}</p>}
               </div>
 
               <div>
@@ -245,12 +364,13 @@ function App() {
                   {isArabic ? 'كلمة المرور' : 'Password'}
                 </label>
                 <input 
-                  name="password"
                   type="password" 
-                  defaultValue={signedPassword}
+                  value={userForm.password}
+                  onChange={(e) => handleUserFormChange('password', e.target.value)}
                   placeholder={isArabic ? 'كلمة المرور' : 'Password'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${userForm.errors.password ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {userForm.errors.password && <p className="text-sm text-red-600 mt-1">{userForm.errors.password}</p>}
               </div>
 
               <div>
@@ -259,9 +379,12 @@ function App() {
                 </label>
                 <input 
                   type="password" 
+                  value={userForm.confirmPassword}
+                  onChange={(e) => handleUserFormChange('confirmPassword', e.target.value)}
                   placeholder={isArabic ? 'تأكيد كلمة المرور' : 'Confirm Password'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${userForm.errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {userForm.errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{userForm.errors.confirmPassword}</p>}
               </div>
 
               <button 
@@ -284,57 +407,16 @@ function App() {
             </p>
 
             {showSignInModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-lg mx-auto shadow-lg">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${modalRole === 'user' ? 'bg-blue-500' : modalRole === 'doctor' ? 'bg-green-500' : 'bg-purple-500'}`}>
-                      {modalRole === 'user' && <Heart className="w-8 h-8 text-white" />}
-                      {modalRole === 'doctor' && <Stethoscope className="w-8 h-8 text-white" />}
-                      {modalRole === 'admin' && <Shield className="w-8 h-8 text-white" />}
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">MedSync</h2>
-                      <p className="text-sm text-gray-600">{isArabic ? 'سجل دخولك للوصول إلى لوحة التحكم' : 'Sign in to access your dashboard'}</p>
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleSignInSubmit} className="mt-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{isArabic ? 'البريد الإلكتروني' : 'Email'}</label>
-                      <input name="email" type="email" placeholder={isArabic ? 'البريد الإلكتروني' : 'Email'} defaultValue={signedEmail} className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{isArabic ? 'كلمة المرور' : 'Password'}</label>
-                      <input name="password" type="password" placeholder={isArabic ? 'كلمة المرور' : 'Password'} defaultValue={signedPassword} className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <button type="button" onClick={handleForgotPassword} className="text-sm text-gray-600 hover:underline">{isArabic ? 'نسيت كلمة المرور؟' : 'Forgot password?'}</button>
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={closeSignInModal} className="px-4 py-2 bg-gray-200 rounded">{isArabic ? 'إلغاء' : 'Cancel'}</button>
-                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">{isArabic ? 'تسجيل دخول' : 'Sign In'}</button>
-                      </div>
-                    </div>
-                  </form>
-
-                  <div className="mt-4 text-center text-sm text-gray-600">
-                    {isArabic ? 'لا تملك حسابًا؟' : "Don't have an account?"}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // navigate to the appropriate create-account page for the role
-                        const map = { user: 'userSignup', doctor: 'doctorSignup', admin: 'adminSignup' };
-                        setShowSignInModal(false);
-                        setCurrentPage(map[modalRole] || 'userSignup');
-                      }}
-                      className={`font-semibold ${isArabic ? 'mr-2' : 'ml-2'} text-blue-600 hover:underline`}
-                    >
-                      {isArabic ? 'إنشاء حساب' : 'Create Account'}
-                    </button>
-                  </div>
-
-                </div>
-              </div>
+              <SignInModal
+                isArabic={isArabic}
+                modalRole={modalRole}
+                signedEmail={signedEmail}
+                signedPassword={signedPassword}
+                onClose={closeSignInModal}
+                onSubmit={handleSignInSubmit}
+                onForgot={handleForgotPassword}
+                onCreateAccount={handleCreateAccountFromModal}
+              />
             )}
           </div>
         </div>
@@ -348,9 +430,9 @@ function App() {
       <div className="relative min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isArabic ? 'rtl' : 'ltr'}>
         <button 
           onClick={handleBackToWelcome}
-          className={`absolute top-6 z-10 ${isArabic ? 'right-6' : 'left-6'} flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium`}
+          className="absolute top-6 left-6 z-10 flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium"
         >
-          <ArrowLeft className={isArabic ? 'rotate-180' : ''} />
+          {getBackButtonIcon()}
           {isArabic ? 'العودة لاختيار الدور' : 'Back to Role Selection'}
         </button>
 
@@ -378,17 +460,19 @@ function App() {
               {isArabic ? 'سجل كطبيب على MedSync' : 'Register as a doctor on MedSync'}
             </p>
 
-            <form onSubmit={(e) => handleRegisterSubmit('doctor', e)} className="space-y-4">
+            <form onSubmit={handleDoctorSignupSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   {isArabic ? 'الاسم الكامل' : 'Full Name'}
                 </label>
                 <input 
-                  name="fullName"
                   type="text" 
+                  value={doctorForm.fullName}
+                  onChange={(e) => handleDoctorFormChange('fullName', e.target.value)}
                   placeholder={isArabic ? 'الاسم الكامل' : 'Full Name'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.fullName && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.fullName}</p>}
               </div>
 
               <div>
@@ -396,11 +480,13 @@ function App() {
                   {isArabic ? 'البريد الإلكتروني' : 'Email Address'}
                 </label>
                 <input 
-                  name="email"
                   type="email" 
+                  value={doctorForm.email}
+                  onChange={(e) => handleDoctorFormChange('email', e.target.value)}
                   placeholder={isArabic ? 'البريد الإلكتروني' : 'Email Address'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.email ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.email && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.email}</p>}
               </div>
 
               <div>
@@ -409,9 +495,12 @@ function App() {
                 </label>
                 <input 
                   type="tel" 
+                  value={doctorForm.phone}
+                  onChange={(e) => handleDoctorFormChange('phone', e.target.value)}
                   placeholder={isArabic ? 'رقم الهاتف' : 'Phone Number'}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${isArabic ? 'text-right' : 'text-left'}`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.phone ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.phone && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.phone}</p>}
               </div>
 
               <div>
@@ -420,9 +509,12 @@ function App() {
                 </label>
                 <input 
                   type="text" 
+                  value={doctorForm.specialization}
+                  onChange={(e) => handleDoctorFormChange('specialization', e.target.value)}
                   placeholder={isArabic ? 'التخصص' : 'Specialization'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.specialization ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.specialization && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.specialization}</p>}
               </div>
 
               <div>
@@ -431,9 +523,12 @@ function App() {
                 </label>
                 <input 
                   type="text" 
+                  value={doctorForm.licenseNumber}
+                  onChange={(e) => handleDoctorFormChange('licenseNumber', e.target.value)}
                   placeholder={isArabic ? 'رقم الترخيص الطبي' : 'Medical License Number'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.licenseNumber ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.licenseNumber && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.licenseNumber}</p>}
               </div>
 
               <div>
@@ -441,11 +536,13 @@ function App() {
                   {isArabic ? 'كلمة المرور' : 'Password'}
                 </label>
                 <input 
-                  name="password"
                   type="password" 
+                  value={doctorForm.password}
+                  onChange={(e) => handleDoctorFormChange('password', e.target.value)}
                   placeholder={isArabic ? 'كلمة المرور' : 'Password'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.password ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.password && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.password}</p>}
               </div>
 
               <div>
@@ -454,9 +551,12 @@ function App() {
                 </label>
                 <input 
                   type="password" 
+                  value={doctorForm.confirmPassword}
+                  onChange={(e) => handleDoctorFormChange('confirmPassword', e.target.value)}
                   placeholder={isArabic ? 'تأكيد كلمة المرور' : 'Confirm Password'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${doctorForm.errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {doctorForm.errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{doctorForm.errors.confirmPassword}</p>}
               </div>
 
               <button 
@@ -497,9 +597,9 @@ function App() {
       <div className="relative min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isArabic ? 'rtl' : 'ltr'}>
         <button 
           onClick={handleBackToWelcome}
-          className={`absolute top-6 z-10 ${isArabic ? 'right-6' : 'left-6'} flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium`}
+          className="absolute top-6 left-6 z-10 flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium"
         >
-          <ArrowLeft className={isArabic ? 'rotate-180' : ''} />
+          {getBackButtonIcon()}
           {isArabic ? 'العودة لاختيار الدور' : 'Back to Role Selection'}
         </button>
 
@@ -527,17 +627,19 @@ function App() {
               {isArabic ? 'سجل كمدير نظام على MedSync' : 'Register as a system administrator on MedSync'}
             </p>
 
-            <form onSubmit={(e) => handleRegisterSubmit('admin', e)} className="space-y-4">
+            <form onSubmit={handleAdminSignupSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   {isArabic ? 'الاسم الكامل' : 'Full Name'}
                 </label>
                 <input 
-                  name="fullName"
                   type="text" 
+                  value={adminForm.fullName}
+                  onChange={(e) => handleAdminFormChange('fullName', e.target.value)}
                   placeholder={isArabic ? 'الاسم الكامل' : 'Full Name'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.fullName && <p className="text-sm text-red-600 mt-1">{adminForm.errors.fullName}</p>}
               </div>
 
               <div>
@@ -545,11 +647,13 @@ function App() {
                   {isArabic ? 'البريد الإلكتروني' : 'Email Address'}
                 </label>
                 <input 
-                  name="email"
                   type="email" 
+                  value={adminForm.email}
+                  onChange={(e) => handleAdminFormChange('email', e.target.value)}
                   placeholder={isArabic ? 'البريد الإلكتروني' : 'Email Address'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.email ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.email && <p className="text-sm text-red-600 mt-1">{adminForm.errors.email}</p>}
               </div>
 
               <div>
@@ -558,9 +662,12 @@ function App() {
                 </label>
                 <input 
                   type="tel" 
+                  value={adminForm.phone}
+                  onChange={(e) => handleAdminFormChange('phone', e.target.value)}
                   placeholder={isArabic ? 'رقم الهاتف' : 'Phone Number'}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${isArabic ? 'text-right' : 'text-left'}`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.phone ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.phone && <p className="text-sm text-red-600 mt-1">{adminForm.errors.phone}</p>}
               </div>
 
               <div>
@@ -569,9 +676,12 @@ function App() {
                 </label>
                 <input 
                   type="text" 
+                  value={adminForm.organization}
+                  onChange={(e) => handleAdminFormChange('organization', e.target.value)}
                   placeholder={isArabic ? 'المؤسسة' : 'Organization'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.organization ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.organization && <p className="text-sm text-red-600 mt-1">{adminForm.errors.organization}</p>}
               </div>
 
               <div>
@@ -580,9 +690,12 @@ function App() {
                 </label>
                 <input 
                   type="text" 
+                  value={adminForm.adminCode}
+                  onChange={(e) => handleAdminFormChange('adminCode', e.target.value)}
                   placeholder={isArabic ? 'كود المدير' : 'Administrator Code'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.adminCode ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.adminCode && <p className="text-sm text-red-600 mt-1">{adminForm.errors.adminCode}</p>}
               </div>
 
               <div>
@@ -590,11 +703,13 @@ function App() {
                   {isArabic ? 'كلمة المرور' : 'Password'}
                 </label>
                 <input 
-                  name="password"
                   type="password" 
+                  value={adminForm.password}
+                  onChange={(e) => handleAdminFormChange('password', e.target.value)}
                   placeholder={isArabic ? 'كلمة المرور' : 'Password'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.password ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.password && <p className="text-sm text-red-600 mt-1">{adminForm.errors.password}</p>}
               </div>
 
               <div>
@@ -603,9 +718,12 @@ function App() {
                 </label>
                 <input 
                   type="password" 
+                  value={adminForm.confirmPassword}
+                  onChange={(e) => handleAdminFormChange('confirmPassword', e.target.value)}
                   placeholder={isArabic ? 'تأكيد كلمة المرور' : 'Confirm Password'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${adminForm.errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
                 />
+                {adminForm.errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{adminForm.errors.confirmPassword}</p>}
               </div>
 
               <button 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, Stethoscope, Shield, X } from 'lucide-react';
 
 export default function SignInModal({
@@ -13,6 +13,44 @@ export default function SignInModal({
 }) {
   const roleColorClass = modalRole === 'user' ? 'bg-blue-500' : modalRole === 'doctor' ? 'bg-green-500' : 'bg-purple-500';
   const btnColorClass = modalRole === 'user' ? 'bg-blue-600 hover:bg-blue-700' : modalRole === 'doctor' ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700';
+
+  const [email, setEmail] = useState(signedEmail || '');
+  const [password, setPassword] = useState(signedPassword || '');
+  const [errors, setErrors] = useState({ email: '', password: '' });
+
+  useEffect(() => {
+    setEmail(signedEmail || '');
+  }, [signedEmail]);
+
+  useEffect(() => {
+    setPassword(signedPassword || '');
+  }, [signedPassword]);
+
+  // Validation function (runs on every change)
+  const validateField = (emailVal, passwordVal) => {
+    const next = { email: '', password: '' };
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!emailVal) next.email = isArabic ? 'البريد الإلكتروني مطلوب.' : 'Email is required.';
+    else if (!emailRe.test(emailVal)) next.email = isArabic ? 'البريد الإلكتروني غير صالح.' : 'Invalid email address.';
+
+    if (!passwordVal) next.password = isArabic ? 'كلمة المرور مطلوبة.' : 'Password is required.';
+    else if (passwordVal.length < 6) next.password = isArabic ? 'كلمة المرور قصيرة، يجب أن تكون 6 أحرف على الأقل.' : 'Password must be at least 6 characters.';
+
+    setErrors(next);
+    return !next.email && !next.password;
+  };
+
+  const validate = () => {
+    return validateField(email, password);
+  };
+
+  const handleSubmit = (e) => {
+    e && e.preventDefault && e.preventDefault();
+    if (!validate()) return;
+    // call onSubmit with validated data
+    onSubmit && onSubmit({ email, password, role: modalRole });
+  };
 
   return (
     <div
@@ -45,17 +83,23 @@ export default function SignInModal({
           <p className="text-sm text-gray-500 mt-1">{isArabic ? 'سجل دخولك للوصول إلى لوحة التحكم' : 'Sign in to access your dashboard'}</p>
         </div>
 
-        <form onSubmit={onSubmit} className="mt-6">
+        <form onSubmit={handleSubmit} className="mt-6">
           <div className="mb-3">
             <label className="block text-sm font-medium text-gray-700 mb-1">{isArabic ? 'البريد الإلكتروني' : 'Email'}</label>
             <input
               name="email"
               type="email"
               autoFocus
+              value={email}
+              onChange={(e) => {
+                const newEmail = e.target.value;
+                setEmail(newEmail);
+                validateField(newEmail, password);
+              }}
               placeholder={isArabic ? 'example@domain.com' : 'name@example.com'}
-              defaultValue={signedEmail}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-400"
+              className={`w-full px-4 py-3 border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 ${errors.email ? 'border-red-500 focus:ring-red-400' : 'border-gray-200 focus:ring-indigo-400'}`}
             />
+            {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
           </div>
 
           <div className="mb-2">
@@ -63,10 +107,16 @@ export default function SignInModal({
             <input
               name="password"
               type="password"
+              value={password}
+              onChange={(e) => {
+                const newPassword = e.target.value;
+                setPassword(newPassword);
+                validateField(email, newPassword);
+              }}
               placeholder={isArabic ? 'أدخل كلمة المرور' : 'Enter your password'}
-              defaultValue={signedPassword}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-400"
+              className={`w-full px-4 py-3 border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 ${errors.password ? 'border-red-500 focus:ring-red-400' : 'border-gray-200 focus:ring-indigo-400'}`}
             />
+            {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
           </div>
 
           <div className="flex justify-end mb-4">
